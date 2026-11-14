@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kyle HQ</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kyle HQ"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="favicon.svg"><link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a quest-log HQ. Sticky area tabs on top; Today first; then one panel group per life area. Phone-first, two columns when wide. */
+:root {
+  --bg: #eef2ea; --panel: #fbfcf8; --ink: #1d2a22; --muted: #5d6b61; --line: #d5ddd0;
+  --heal: #157a63; --heal-soft: #d6ede5;
+  --xp: #b8860b; --xp-soft: #f3e6c4;
+  --warn: #b4531b; --warn-soft: #f6e1d3; --done: #2f7d3b;
+  --f-display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 14px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111914; --panel: #18231c; --ink: #e4ece5; --muted: #9aab9f; --line: #2b3a30;
+  --heal: #4cc3a2; --heal-soft: #173a30; --xp: #e2b33f; --xp-soft: #3a3016; --warn: #e88a52; --warn-soft: #3d2618; --done: #6cc47a;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111914; --panel: #18231c; --ink: #e4ece5; --muted: #9aab9f; --line: #2b3a30;
+  --heal: #4cc3a2; --heal-soft: #173a30; --xp: #e2b33f; --xp-soft: #3a3016; --warn: #e88a52; --warn-soft: #3d2618; --done: #6cc47a;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--f-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.pad { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 16px 56px; display: grid; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+h1 { font: 800 clamp(28px, 7vw, 38px)/1.05 var(--f-display); margin: 0; letter-spacing: -0.01em; }
+.stamp { font: 500 13px var(--f-data); color: var(--muted); }
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+nav .row { max-width: 1040px; margin: 0 auto; display: flex; gap: 6px; overflow-x: auto; padding-block: 10px; scrollbar-width: none; }
+nav a { flex: none; font: 700 13px var(--f-data); text-decoration: none; color: var(--muted); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); }
+nav a:hover, nav a:focus-visible { color: var(--heal); border-color: var(--heal); outline: none; }
+section.area { display: grid; gap: 16px; scroll-margin-top: 64px; }
+.area-head { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+.area-head h2 { font: 800 24px/1.2 var(--f-display); margin: 0; }
+.area-head .label { margin: 0; }
+.grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+@media (min-width: 820px) { .grid { grid-template-columns: 1.2fr 1fr; } .span2 { grid-column: 1 / -1; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.label { font: 700 12px var(--f-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h3 { font: 700 19px/1.25 var(--f-display); margin: 0; text-wrap: balance; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.empty { color: var(--muted); font-style: italic; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+
+.quest { border: 2px solid var(--heal); }
+.quest h3 { font-size: clamp(21px, 5vw, 26px); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { font: 700 12.5px var(--f-data); padding: 4px 10px; border-radius: 999px; background: var(--heal-soft); color: var(--heal); }
+.chip.gold { background: var(--xp-soft); color: var(--xp); }
+.chip.warn { background: var(--warn-soft); color: var(--warn); }
+.toggle { justify-self: start; font: 700 14px var(--f-body); color: var(--heal); background: transparent; border: 1.5px solid var(--heal); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+.toggle:hover { background: var(--heal-soft); }
+.toggle:focus-visible, input:focus-visible { outline: 3px solid var(--xp); outline-offset: 2px; }
+.light { border-left: 4px solid var(--xp); padding: 8px 12px; background: var(--xp-soft); border-radius: 8px; }
+.top3 { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.top3 li::marker { font: 700 14px var(--f-data); color: var(--xp); }
+.anchors { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.anchors li { display: grid; grid-template-columns: 74px 1fr; gap: 10px; font-size: 15px; }
+.anchors .t { font: 700 13px var(--f-data); color: var(--heal); padding-top: 2px; }
+
+.bar { display: grid; gap: 6px; }
+.bar-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 15px; }
+.track { height: 14px; border-radius: 7px; background: var(--xp-soft); overflow: hidden; }
+.fill { height: 100%; background: var(--xp); border-radius: 7px; transition: width .6s ease; }
+.track.heal { background: var(--heal-soft); } .fill.heal { background: var(--heal); }
+@media (prefers-reduced-motion: reduce) { .fill { transition: none; } html { scroll-behavior: auto; } }
+html { scroll-behavior: smooth; }
+
+.series { display: grid; gap: 10px; }
+.book-name { font: 700 16px var(--f-display); }
+.stages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 4px; }
+.stage { font: 700 10.5px var(--f-data); text-transform: uppercase; letter-spacing: 0.04em; text-align: center; padding: 6px 2px; border-radius: 6px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); overflow-wrap: anywhere; }
+.stage.done { background: var(--heal-soft); color: var(--heal); border-color: transparent; }
+.stage.now { background: var(--xp); color: var(--panel); border-color: transparent; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+.group { display: grid; gap: 2px; }
+.group h4 { font: 700 13px var(--f-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--heal); margin: 10px 0 2px; }
+.todo { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.todo input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--done); cursor: pointer; }
+.todo.is-done .t-text { color: var(--muted); text-decoration: line-through; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 500 12px var(--f-data); color: var(--muted); margin-top: 2px; }
+.meta .due { color: var(--warn); font-weight: 700; }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart text { fill: var(--muted); font: 500 11px var(--f-data); }
+.chart .v { fill: var(--ink); font-weight: 700; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stat { display: grid; gap: 2px; }
+.stat b { font: 700 clamp(20px, 5vw, 26px) var(--f-data); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--muted); }
+.plain { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.checks { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.checks li::before { content: "○ "; color: var(--muted); }
+.checks li.got::before { content: "✓ "; color: var(--done); }
+.checks li.got { color: var(--muted); }
+blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--heal); background: var(--heal-soft); border-radius: 0 8px 8px 0; }
+
+/* Projects */
+.cats { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.cat { flex: none; font: 700 14px var(--f-body); padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+.cat .n { font: 700 12px var(--f-data); color: var(--muted); margin-left: 6px; }
+.cat[aria-pressed="true"] { background: var(--heal); border-color: var(--heal); color: var(--panel); }
+.cat[aria-pressed="true"] .n { color: var(--panel); opacity: .8; }
+.first { border: 2px solid var(--xp); background: linear-gradient(var(--xp-soft), var(--panel) 70%); }
+.first .big { font: 800 clamp(21px, 5.4vw, 27px)/1.2 var(--f-display); text-wrap: balance; }
+.first .from { font: 700 12.5px var(--f-data); color: var(--xp); text-transform: uppercase; letter-spacing: .06em; }
+.pgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.pcard { text-align: left; font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 10px; cursor: pointer; }
+.pcard:hover, .pcard:focus-visible { border-color: var(--heal); outline: none; box-shadow: 0 0 0 3px var(--heal-soft); }
+.pcard h3 { font-size: 18px; }
+.pcard .next { font-size: 14.5px; }
+.pcard .next b { color: var(--heal); font: 700 12px var(--f-data); text-transform: uppercase; letter-spacing: .05em; display: block; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; }
+.step { display: grid; grid-template-columns: 32px 1fr; gap: 10px; position: relative; padding-bottom: 14px; }
+.step::before { content: ""; position: absolute; left: 15px; top: 30px; bottom: 0; width: 2px; background: var(--line); }
+.step:last-child::before { display: none; }
+.dot { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel); display: grid; place-items: center; font: 700 13px var(--f-data); color: var(--muted); cursor: pointer; padding: 0; }
+.dot:focus-visible { outline: 3px solid var(--xp); outline-offset: 2px; }
+.step.done .dot { background: var(--heal-soft); border-color: transparent; color: var(--done); }
+.step.done .s-text { color: var(--muted); }
+.step.now .dot { background: var(--xp); border-color: var(--xp); color: var(--panel); }
+.step.now .s-text { font-weight: 700; font-size: 17px; }
+.s-text { padding-top: 4px; }
+.s-note { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.branch { margin-top: 8px; border: 1.5px dashed var(--warn); border-radius: 10px; padding: 8px 12px; font-size: 14px; background: var(--warn-soft); }
+.branch b { color: var(--warn); }
+.back { justify-self: start; font: 700 14px var(--f-body); color: var(--heal); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+.linkbtn { justify-self: start; font: 700 14px var(--f-body); color: var(--heal); text-decoration: none; border: 1.5px solid var(--heal); border-radius: 10px; padding: 8px 14px; }
+.donefold summary { cursor: pointer; font: 700 13px var(--f-data); color: var(--muted); padding: 4px 0 10px; }
+.book { display: grid; gap: 6px; }
+.book .chip { margin-left: 8px; }
+.times { border-collapse: collapse; width: 100%; font-size: 14px; }
+.times th, .times td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.times th { font: 700 12px var(--f-data); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.times td.num { font-family: var(--f-data); }
+.stage { font-size: 10px; overflow-wrap: normal; letter-spacing: 0; padding: 6px 0; }
+.rem { display: grid; grid-template-columns: 112px 1fr; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.rem:last-child { border-bottom: 0; }
+.rem .when { font: 700 12.5px/1.35 var(--f-data); color: var(--heal); }
+.rem .when .rel { display: block; font-weight: 500; color: var(--muted); }
+.rem.soon .when { color: var(--xp); }
+.rem .from { font: 500 12px var(--f-data); color: var(--muted); margin-top: 2px; }
+.team-card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.tline { display: grid; grid-template-columns: 112px 1fr; gap: 10px; font-size: 15px; }
+.tline > span:first-child { font: 700 12px var(--f-data); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.tline.wait > span:first-child { color: var(--xp); }
+.tline.stuck > span:first-child { color: var(--warn); }
+.tline ul { margin: 0; padding-left: 16px; display: grid; gap: 2px; }
+.order { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); }
+.order:first-of-type { border-top: 0; }
+.order .from { font: 500 12.5px var(--f-data); color: var(--muted); }
+@media (max-width: 420px) { .tline { grid-template-columns: 1fr; gap: 2px; } }
+.ci-area { display: grid; gap: 10px; }
+.ci-recap { margin: 0; padding-left: 18px; color: var(--muted); font-size: 15px; }
+.ci-q { display: grid; gap: 6px; }
+.ci-q label { font-weight: 700; }
+.ci-q textarea { font: 16px/1.4 var(--f-body); color: var(--ink); background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
+.ci-q textarea:focus-visible { outline: none; border-color: var(--heal); }
+.ci-saved { font: 500 12.5px var(--f-data); color: var(--muted); min-height: 1em; }
+.ci-saved.ok { color: var(--heal); } .ci-saved.bad { color: var(--warn); }
+.rem-group h4 { font: 700 13px var(--f-data); letter-spacing: .06em; text-transform: uppercase; color: var(--heal); margin: 6px 0 2px; }
+details.rem-more summary { cursor: pointer; font: 700 13px var(--f-data); color: var(--muted); padding: 8px 0; }
+@media (max-width: 420px) { .rem { grid-template-columns: 92px 1fr; } }
+.keybox { border: 2px solid var(--xp); }
+.keybox input { font: 16px var(--f-data); padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); width: 100%; box-sizing: border-box; }
+.keybox ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.keyfoot { text-align: center; font-size: 13px; color: var(--muted); padding: 24px 0 8px; }
+.keyfoot a { color: var(--muted); }
+</style></head><body>
+
+<nav class="pad" aria-label="Areas"><div class="row">
+  <a href="#today">Today</a><a href="#checkin">Check-in</a><a href="#projects">Projects</a><a href="#reminders">Reminders</a><a href="#team">Team</a><a href="#orders">Orders</a><a href="#todos">To-dos</a><a href="#writing">Writing</a><a href="#health">Health</a><a href="#work">Work</a><a href="#home">Home</a><a href="#life">Life</a>
+</div></nav>
+
+<div class="wrap pad">
+  <header>
+    <h1>Kyle HQ</h1>
+    <span class="stamp" id="stamp">Loading your quest log…</span>
+  </header>
+  <section class="panel keybox" id="key-box" hidden>
+    <h3>Connect your HQ</h3>
+    <p>Your HQ data lives in your private personal-data repo. Paste a GitHub key here once on each device. It stays on this device only.</p>
+    <ol>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub's new key page</a>.</li>
+      <li>Name it "Kyle HQ app" and set an expiry.</li>
+      <li>Under Repository access, choose <b>Only select repositories</b> and pick <b>personal-data</b>.</li>
+      <li>Under Permissions, set <b>Contents</b> to <b>Read and write</b>.</li>
+      <li>Tap Generate, copy the key and paste it here.</li>
+    </ol>
+    <input id="key-in" type="password" autocomplete="off" placeholder="github_pat_…" aria-label="GitHub key">
+    <button class="toggle" id="key-save" type="button">Save and load</button>
+    <p class="note" id="key-msg" role="status"></p>
+  </section>
+
+  <section class="area" id="today" aria-labelledby="today-h">
+    <div class="area-head"><h2 id="today-h">Today</h2></div>
+    <div class="grid">
+      <div class="panel quest">
+        <p class="label">Today's writing quest</p>
+        <h3 id="q-title">Loading…</h3>
+        <p id="q-where" class="muted"></p>
+        <div class="chips" id="q-chips"></div>
+        <button class="toggle" id="tired" type="button" aria-expanded="false">Tired today? Show a lighter quest</button>
+        <p class="light" id="light" hidden></p>
+      </div>
+      <div class="panel">
+        <p class="label">Top 3 to-dos</p>
+        <ol class="top3" id="top3"><li class="empty">Nothing picked yet.</li></ol>
+        <p class="label">The day's fixed points</p>
+        <ul class="anchors" id="anchors"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="area" id="checkin" aria-labelledby="ci-h">
+    <div class="area-head"><h2 id="ci-h">Weekly check-in</h2><span class="stamp num" id="ci-count"></span></div>
+    <div class="grid" id="ci-box"><div class="panel"><p class="empty">Your weekly check-in shows here every Sunday morning.</p></div></div>
+  </section>
+
+  <section class="area" id="projects" aria-labelledby="projects-h">
+    <div class="area-head"><h2 id="projects-h">Projects</h2></div>
+    <div class="cats" id="cats" role="group" aria-label="Categories"></div>
+    <div id="proj-view" style="display:grid;gap:16px"><p class="empty">Loading your projects…</p></div>
+  </section>
+
+  <section class="area" id="reminders" aria-labelledby="rem-h">
+    <div class="area-head"><h2 id="rem-h">Reminders</h2><span class="stamp num" id="rem-count"></span></div>
+    <div class="panel" id="rem-box"><p class="empty">Loading your reminders…</p></div>
+  </section>
+
+  <section class="area" id="team" aria-labelledby="team-h">
+    <div class="area-head"><h2 id="team-h">Team</h2><span class="stamp num" id="team-count"></span></div>
+    <div class="grid" id="team-box"><div class="panel"><p class="empty">Each project's daily report shows here every evening.</p></div></div>
+  </section>
+
+  <section class="area" id="orders" aria-labelledby="ord-h">
+    <div class="area-head"><h2 id="ord-h">Orders</h2><span class="stamp num" id="ord-count"></span></div>
+    <div class="panel" id="ord-box"><p class="empty">No orders yet. Tell your Chief of Staff "tell Sparrow to …" and it shows up here until it's done.</p></div>
+  </section>
+
+  <section class="area" id="todos" aria-labelledby="todos-h">
+    <div class="area-head"><h2 id="todos-h">To-dos</h2><span class="stamp num" id="todo-count"></span></div>
+    <div class="panel">
+      <div class="filters">
+        <label><input type="checkbox" id="mine" checked> Only mine</label>
+        <label><input type="checkbox" id="showdone"> Show done</label>
+      </div>
+      <div id="todo-list"><p class="empty">Loading your to-dos…</p></div>
+      <p class="note">This is kyle-hq's to-do list, shared by all your projects. Ticks here reach every project at the evening sync.</p>
+    </div>
+  </section>
+
+  <section class="area" id="writing" aria-labelledby="writing-h">
+    <div class="area-head"><h2 id="writing-h">Writing</h2></div>
+    <div class="grid">
+      <div class="panel">
+        <p class="label">Experience</p>
+        <div id="bars"><p class="empty">Waiting for word counts…</p></div>
+      </div>
+      <div class="panel">
+        <p class="label">Last 7 days · words typed</p>
+        <div id="week"><p class="empty">No days logged yet.</p></div>
+        <p class="note">From Sparrow's daily writing log. Pomodoros are minutes ÷ 25.</p>
+      </div>
+      <div class="panel">
+        <p class="label">Series map</p>
+        <h3>Quest Declined</h3>
+        <div class="series" id="series"><p class="empty">No books yet.</p></div>
+      </div>
+      <div class="panel span2">
+        <p class="label">Stage times · how long each step takes</p>
+        <div id="stage-times" style="overflow-x:auto"></div>
+        <p class="note">From Sparrow. The goal: see how long each step takes, guess the next one, and keep getting faster. Next book: collect cover comps during market research, and send the artist request the day draft 1 starts (Kyle, Nov 6).</p>
+      </div>
+      <div class="panel">
+        <p class="label">Main quest</p>
+        <h3>Full-time author</h3>
+        <div class="stats" id="stats"></div>
+        <p class="note" id="goal-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="area" id="health" aria-labelledby="health-h">
+    <div class="area-head"><h2 id="health-h">Health</h2></div>
+    <div class="grid">
+      <div class="panel">
+        <p class="label">Body and training</p>
+        <div class="stats" id="health-stats"></div>
+        <p class="note" id="health-note"></p>
+      </div>
+      <div class="panel">
+        <p class="label">Party health · your guardrails</p>
+        <ul class="plain">
+          <li>Gym at noon comes first; writing starts after it.</li>
+          <li>Bedtime meditation stays. The 8:45 Pomodoro only if you're not wiped out.</li>
+          <li>Wednesday is date night. Evenings are family time.</li>
+          <li>Tired means skip. Never stack evenings to make up.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="area" id="work" aria-labelledby="work-h">
+    <div class="area-head"><h2 id="work-h">Work</h2><span class="label">Best Page Forward</span></div>
+    <div class="panel">
+      <div class="stats" id="work-stats"></div>
+      <p class="note" id="work-note"></p>
+    </div>
+  </section>
+
+  <section class="area" id="home" aria-labelledby="home-h">
+    <div class="area-head"><h2 id="home-h">Home</h2></div>
+    <div class="grid">
+      <div class="panel">
+        <p class="label" id="walmart-title">Walmart list</p>
+        <ul class="checks" id="walmart"><li class="empty">No list yet.</li></ul>
+        <p class="note">Say "add X to Walmart" in the project chat to add something.</p>
+      </div>
+      <div class="panel">
+        <p class="label">Meal rotation</p>
+        <ul class="plain" id="meals"><li class="empty">No meals saved yet.</li></ul>
+        <p class="note" id="home-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="area" id="life" aria-labelledby="life-h">
+    <div class="area-head"><h2 id="life-h">Life</h2></div>
+    <div class="grid">
+      <div class="panel">
+        <p class="label">Your vision</p>
+        <div id="vision" style="display:grid;gap:10px"><p class="empty">No vision written yet.</p></div>
+      </div>
+      <div class="panel">
+        <p class="label">Goals and good times</p>
+        <p id="life-goals"></p>
+        <p id="life-good"></p>
+        <p class="note" id="life-note"></p>
+      </div>
+    </div>
+  </section>
+  <p class="keyfoot"><a href="#" id="key-change">Change GitHub key</a></p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => (n == null || n === "" ? "–" : Number(n).toLocaleString("en-US"));
+const STAGES = ["Market research", "Planning", "Outlining", "Writing", "Editing", "Publishing"];
+const S = { today: null, goal: null, health: null, work: null, home: null, life: null, books: [], days: [], todos: [], projects: [] };
+let db = null;
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function nyDate(d = new Date()) { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d); }
+function mondayOf(iso) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); }
+
+function stats(boxId, items) {
+  const box = $(boxId); box.replaceChildren();
+  for (const [b, s] of items) { const d = el("div", "stat"); d.append(el("b", "", b), el("span", "", s)); box.append(d); }
+}
+
+function renderToday() {
+  const t = S.today; if (!t) return;
+  $("q-title").textContent = t.focus || "No writing quest set";
+  $("q-where").textContent = t.where || "";
+  const chips = $("q-chips"); chips.replaceChildren();
+  if (t.book) chips.append(el("span", "chip", t.book));
+  if (t.aim) chips.append(el("span", "chip gold", t.aim));
+  $("light").textContent = t.light_task || "One Pomodoro, then stop. It still counts.";
+  $("stamp").textContent = [t.date, t.updated ? "updated " + t.updated : ""].filter(Boolean).join(" · ");
+  const top = $("top3"); top.replaceChildren();
+  for (const x of t.top3 || []) top.append(el("li", "", x));
+  if (!(t.top3 || []).length) top.append(el("li", "empty", "Nothing picked yet."));
+  const an = $("anchors"); an.replaceChildren();
+  for (const a of t.anchors || []) { const li = el("li"); li.append(el("span", "t", a.time), el("span", "", a.text)); an.append(li); }
+}
+
+function renderTodos() {
+  const box = $("todo-list"); if (!S.todos.length) return;
+  const mine = $("mine").checked, showDone = $("showdone").checked;
+  const rows = [...S.todos].sort((a, b) => (a.order || 0) - (b.order || 0))
+    .filter((t) => (!mine || /kyle/i.test(t.owner || "")) && (showDone || !t.done));
+  const open = S.todos.filter((t) => !t.done);
+  $("todo-count").textContent = `${open.filter((t) => /kyle/i.test(t.owner || "")).length} yours open · ${open.length} total`;
+  box.replaceChildren();
+  if (!rows.length) { box.append(el("p", "empty", "Nothing here. Nice work.")); return; }
+  let area = null, group = null;
+  for (const t of rows) {
+    if (t.area !== area) { area = t.area; group = el("div", "group"); group.append(el("h4", "", (area || "Other").replace(/\s*\(.*\)\s*$/, ""))); box.append(group); }
+    const row = el("div", "todo" + (t.done ? " is-done" : ""));
+    const id = "c-" + t.id;
+    const cb = el("input"); cb.type = "checkbox"; cb.id = id; cb.checked = !!t.done;
+    cb.addEventListener("change", () => tick(t.id, cb.checked, cb));
+    const body = el("div"); const lab = el("label", "t-text", t.text); lab.htmlFor = id; body.append(lab);
+    const meta = el("div", "meta");
+    if (t.owner && !/^kyle$/i.test(t.owner)) meta.append(el("span", "", "owner: " + t.owner));
+    if (t.due) meta.append(el("span", "due", "due " + t.due));
+    if (t.from) meta.append(el("span", "", "from " + t.from));
+    if (meta.childElementCount) body.append(meta);
+    row.append(cb, body); group.append(row);
+  }
+}
+async function tick(id, done, input) {
+  if (!db) { input.checked = !done; return; }
+  try { await db.doc("todos/" + id).update({ done, done_at: done ? new Date().toISOString() : null, ticked_on_page: true }); }
+  catch (e) { input.checked = !done; $("todo-count").textContent = "That tick didn't save. Try again in a moment."; }
+}
+$("mine").addEventListener("change", renderTodos);
+$("showdone").addEventListener("change", renderTodos);
+
+function bar(label, value, max, right, heal) {
+  const b = el("div", "bar"); const top = el("div", "bar-top"); top.append(el("span", "", label), el("span", "num", right));
+  const tr = el("div", "track" + (heal ? " heal" : "")); const f = el("div", "fill" + (heal ? " heal" : ""));
+  f.style.width = (max ? Math.min(100, value / max * 100) : 0).toFixed(1) + "%"; tr.append(f); b.append(top, tr);
+  b.setAttribute("role", "img"); b.setAttribute("aria-label", `${label}: ${right}`); return b;
+}
+const daysLatest = () => { const m = new Map(); for (const d of S.days) m.set(d.date, d); return [...m.values()].sort((a, b) => a.date.localeCompare(b.date)); };
+
+function renderBars() {
+  const box = $("bars"); box.replaceChildren();
+  const active = S.books.find((b) => b.stage === "Writing" && b.words && !b.published);
+  if (active) box.append(bar(active.title + " draft", active.words, active.target, `${fmt(active.words)} / ${fmt(active.target)} words`));
+  const target = S.goal?.weekly_word_target || 15000;
+  const wk = daysLatest().filter((d) => d.date >= mondayOf(nyDate()));
+  const typed = wk.reduce((s, d) => s + (Number(d.typed) || 0), 0), pom = wk.reduce((s, d) => s + (Number(d.pomodoros) || 0), 0);
+  box.append(bar("This week (from Monday)", typed, target, `${fmt(typed)} / ${fmt(target)} words`, true));
+  box.append(el("p", "note", `${pom.toFixed(2)} Pomodoros this week. A drafting week needs about 38.`));
+}
+
+function renderWeek() {
+  const all = daysLatest(); if (!all.length) return;
+  const end = new Date(nyDate() + "T12:00:00"), slots = [];
+  for (let i = 6; i >= 0; i--) { const d = new Date(end); d.setDate(end.getDate() - i); const iso = d.toISOString().slice(0, 10); const r = all.find((x) => x.date === iso);
+    slots.push({ typed: r ? Number(r.typed) || 0 : 0, has: !!r, day: d.toLocaleDateString("en-US", { weekday: "short" }) }); }
+  const W = 360, H = 170, top = 22, bottom = 34, left = 6, gap = 8, max = Math.max(3000, ...slots.map((s) => s.typed)), bw = (W - left * 2 - gap * 6) / 7;
+  const per = Math.round((S.goal?.weekly_word_target || 15000) / 7), gy = top + (H - top - bottom) * (1 - per / max);
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Words typed each of the last 7 days"><line x1="0" x2="${W}" y1="${gy}" y2="${gy}" stroke="var(--heal)" stroke-dasharray="4 4" stroke-width="1.5"/><text x="${W - 4}" y="${gy - 5}" text-anchor="end">pace ${fmt(per)}/day</text>`;
+  slots.forEach((s, i) => { const x = left + i * (bw + gap), h = (H - top - bottom) * (s.typed / max), y = H - bottom - h;
+    svg += `<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(h, s.has ? 2 : 0)}" rx="4" fill="${i === 6 ? "var(--heal)" : "var(--xp)"}"/>`;
+    if (s.has) svg += `<text class="v" x="${x + bw / 2}" y="${y - 5}" text-anchor="middle">${s.typed >= 1000 ? (s.typed / 1000).toFixed(1) + "k" : s.typed}</text>`;
+    svg += `<text x="${x + bw / 2}" y="${H - 14}" text-anchor="middle">${s.day}</text>`; });
+  $("week").innerHTML = svg + `<line x1="0" x2="${W}" y1="${H - bottom}" y2="${H - bottom}" stroke="var(--line)"/></svg>`;
+}
+
+const shortD = (d) => d ? new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+const daysBetween = (a, b) => Math.round((new Date(b + "T12:00:00") - new Date(a + "T12:00:00")) / 864e5);
+function renderSeries() {
+  const box = $("series"); if (!S.books.length) return; box.replaceChildren();
+  const books = [...S.books].sort((a, z) => (a.order || 0) - (z.order || 0));
+  for (const b of books) {
+    const wrap = el("div", "book"); const head = el("div");
+    head.append(el("span", "book-name", b.title));
+    const pub = b.published ? "Published " + shortD(b.published) : b.est_publish ? "Est. publish " + shortD(b.est_publish) : "";
+    if (pub) head.append(el("span", "chip" + (b.published ? "" : " gold"), pub));
+    const st = el("div", "stages"); const idx = b.published ? STAGES.length : STAGES.indexOf(b.stage);
+    const SHORT = ["Research", "Plan", "Outline", "Write", "Edit", "Publish"];
+    STAGES.forEach((n, i) => { const c = el("span", "stage" + (idx > i ? " done" : idx === i ? " now" : ""), SHORT[i]); c.title = n; st.append(c); });
+    wrap.append(head, st);
+    const cur = (b.stages || []).find((x) => x.name === b.stage && !x.end);
+    if (cur && !b.published) {
+      const bits = [b.stage + " since " + shortD(cur.start)];
+      if (cur.progress) bits.push(cur.progress);
+      if (b.est_stage_done) bits.push("done by about " + shortD(b.est_stage_done));
+      wrap.append(el("p", "note", bits.join(" · ")));
+    }
+    if (b.note) wrap.append(el("p", "note", b.note));
+    box.append(wrap);
+  }
+  // Stage times table
+  const tb = $("stage-times"); if (!tb) return; tb.replaceChildren();
+  const withStages = books.filter((b) => (b.stages || []).length);
+  if (!withStages.length) { tb.append(el("p", "empty", "No stage times yet.")); return; }
+  const t = el("table", "times"); const hr = el("tr"); hr.append(el("th", "", "Days"));
+  for (const b of withStages) hr.append(el("th", "", b.short || b.title));
+  t.append(hr);
+  for (const row of [...STAGES, "Waiting", "Total"]) {
+    const tr = el("tr"); tr.append(el("td", "", row));
+    for (const b of withStages) {
+      let txt = "";
+      if (row === "Total") { if (b.total_days) txt = b.total_days; }
+      else for (const x of b.stages.filter((x) => x.name === row)) {
+        const d = x.days ?? (x.start && x.end ? daysBetween(x.start, x.end) : x.start ? daysBetween(x.start, nyDate()) + "+" : "");
+        txt = x.shared ? "shared" : String(d);
+      }
+      tr.append(el("td", "num", txt || "–"));
+    }
+    t.append(tr);
+  }
+  tb.append(t);
+}
+function renderGoal() {
+  const g = S.goal; if (!g) return;
+  stats("stats", [[`${g.books_published ?? 0}/${g.goal_books ?? 20}`, "books published"], [`$${fmt(g.income_month ?? 0)}`, `a month, of $${fmt(g.income_target ?? 3500)}`], [`${g.months_at_target ?? 0}/${g.months_needed ?? 6}`, "months at target"]]);
+  $("goal-note").textContent = g.note || "";
+}
+function renderHealth() {
+  const h = S.health; if (!h) return;
+  const delta = h.weight_prev ? (h.weight_latest - h.weight_prev).toFixed(1) : null;
+  stats("health-stats", [[h.weight_latest ? `${h.weight_latest}` : "–", `lb · ${h.weight_date || "no weigh-in"}`], [delta == null ? "–" : (delta > 0 ? "+" : "") + delta, "lb since " + (h.weight_prev_date || "last")], [`${h.workouts_week ?? 0}`, "workouts logged this week"]]);
+  $("health-note").textContent = h.note || "";
+}
+function renderWork() {
+  const w = S.work; if (!w) return;
+  stats("work-stats", [[w.week_hours ?? "–", "hours this week"], [w.last_hours ?? "–", w.last_label || "last logged week"], [w.last_logged || "–", "last timer entry"]]);
+  $("work-note").textContent = w.note || "";
+}
+function renderHome() {
+  const h = S.home; if (!h) return;
+  $("walmart-title").textContent = h.walmart_title || "Walmart list";
+  const ul = $("walmart"); ul.replaceChildren();
+  for (const i of h.walmart || []) ul.append(el("li", i.done ? "got" : "", i.text));
+  if (!(h.walmart || []).length) ul.append(el("li", "empty", "Nothing on the list."));
+  const m = $("meals"); m.replaceChildren();
+  for (const x of h.meals || []) m.append(el("li", "", x));
+  $("home-note").textContent = h.note || "";
+}
+function renderLife() {
+  const l = S.life; if (!l) return;
+  const v = $("vision"); v.replaceChildren();
+  for (const x of l.vision || []) { const q = el("blockquote"); q.append(el("strong", "", x.area + ": "), document.createTextNode(x.text)); v.append(q); }
+  $("life-goals").textContent = l.goals_text || "";
+  $("life-good").textContent = l.good_text || "";
+  $("life-note").textContent = l.note || "";
+}
+
+const toggle = $("tired");
+toggle.addEventListener("click", () => { const open = $("light").hidden; $("light").hidden = !open; toggle.setAttribute("aria-expanded", String(open)); toggle.textContent = open ? "Hide the lighter quest" : "Tired today? Show a lighter quest"; });
+
+/* ---------- Projects and categories ---------- */
+const CATS = [
+  ["Publishing", /quest declined launch|^sparrow: publishing|^writing: other books/i],
+  ["Writing", /^sparrow: writing/i],
+  ["Marketing", /^sparrow: marketing/i],
+  ["Sparrow and Crow", /^sparrow:|^crow|^writing: sparrow/i],
+  ["Household", /^household/i],
+  ["Life", /^life|^personal/i],
+  ["Money", /^money/i],
+  ["Work", /best page forward|^bpf/i],
+];
+const catOf = (area) => (CATS.find(([, re]) => re.test(area || "")) || ["Other"])[0];
+let curCat = "All", curProj = null;
+try { curCat = localStorage.getItem("hq-cat") || "All"; } catch (e) {}
+const nowIdx = (p) => (p.steps || []).findIndex((x) => !x.done);
+const openKyle = () => S.todos.filter((t) => !t.done && /kyle/i.test(t.owner || ""));
+const byDue = (a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (a.order || 0) - (b.order || 0);
+
+function renderCats() {
+  const box = $("cats"); box.replaceChildren();
+  const counts = {};
+  for (const t of openKyle()) { const c = catOf(t.area); counts[c] = (counts[c] || 0) + 1; }
+  for (const p of S.projects) if (nowIdx(p) >= 0) counts[p.category] = (counts[p.category] || 0) + 1;
+  const names = ["All", ...CATS.map(([n]) => n), "Other"].filter((n) => n === "All" || counts[n]);
+  if (!names.includes(curCat)) curCat = "All";
+  for (const n of names) {
+    const b = el("button", "cat", n); b.type = "button"; b.setAttribute("aria-pressed", String(n === curCat));
+    if (n !== "All") b.append(el("span", "n", String(counts[n])));
+    b.addEventListener("click", () => { curCat = n; curProj = null; try { localStorage.setItem("hq-cat", n); } catch (e) {} renderProjects(); });
+    box.append(b);
+  }
+}
+
+function firstCard(from, text, note, onOpen) {
+  const c = el("div", "panel first");
+  c.append(el("p", "from", "Do this first · " + from), el("p", "big", text));
+  if (note) c.append(el("p", "muted", note));
+  if (onOpen) { const b = el("button", "toggle", "Open the full plan"); b.type = "button"; b.addEventListener("click", onOpen); c.append(b); }
+  return c;
+}
+
+function renderProjects() {
+  renderCats();
+  const view = $("proj-view"); view.replaceChildren();
+  if (curProj) { const p = S.projects.find((x) => x.id === curProj); if (p) return renderProject(view, p); curProj = null; }
+  const projs = S.projects.filter((p) => nowIdx(p) >= 0 && (curCat === "All" || p.category === curCat)).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const todos = openKyle().filter((t) => curCat === "All" || catOf(t.area) === curCat).sort(byDue);
+  // The one first thing
+  const lead = projs.find((p) => !(p.steps[nowIdx(p)] || {}).wait) || projs[0];
+  if (lead) { const st = lead.steps[nowIdx(lead)]; view.append(firstCard(lead.title, st.text, st.note, () => { curProj = lead.id; renderProjects(); })); }
+  else if (todos[0]) view.append(firstCard(catOf(todos[0].area), todos[0].text, todos[0].due ? "Due " + todos[0].due : ""));
+  else view.append(el("p", "empty", "Nothing open here. Enjoy it."));
+  if (projs.length) {
+    const g = el("div", "pgrid");
+    for (const p of projs) {
+      const n = (p.steps || []).length, d = p.steps.filter((x) => x.done).length, st = p.steps[nowIdx(p)];
+      const c = el("button", "pcard"); c.type = "button";
+      const chips = el("div", "chips"); chips.append(el("span", "chip", p.category)); if (st.wait) chips.append(el("span", "chip warn", "Waiting"));
+      const tr = el("div", "track heal"); const f = el("div", "fill heal"); f.style.width = Math.round(100 * d / n) + "%"; tr.append(f);
+      const nx = el("p", "next"); nx.append(el("b", "", st.wait ? "Waiting on" : "Next step"), document.createTextNode(st.text));
+      c.append(chips, el("h3", "", p.title), tr, el("p", "note num", `${d} of ${n} steps done`), nx);
+      c.addEventListener("click", () => { curProj = p.id; renderProjects(); $("projects").scrollIntoView(); });
+      g.append(c);
+    }
+    view.append(g);
+  }
+  const rest = lead ? todos : todos.slice(1);
+  if (rest.length) {
+    const pnl = el("div", "panel");
+    pnl.append(el("p", "label", `${curCat === "All" ? "All" : curCat} to-dos · ${todos.length} open`));
+    const list = el("div"); pnl.append(list);
+    for (const t of rest.slice(0, curCat === "All" ? 6 : 50)) list.append(todoRow(t));
+    if (curCat === "All" && rest.length > 6) pnl.append(el("p", "note", "Pick a category above to see all of them, or scroll to To-dos."));
+    view.append(pnl);
+  }
+}
+
+function todoRow(t) {
+  const row = el("div", "todo"); const id = "pc-" + t.id;
+  const cb = el("input"); cb.type = "checkbox"; cb.id = id;
+  cb.addEventListener("change", () => tick(t.id, cb.checked, cb));
+  const body = el("div"); const lab = el("label", "t-text", t.text); lab.htmlFor = id; body.append(lab);
+  if (t.due) { const m = el("div", "meta"); m.append(el("span", "due", "due " + t.due)); body.append(m); }
+  row.append(cb, body); return row;
+}
+
+function renderProject(view, p) {
+  const back = el("button", "back", "← All " + (curCat === "All" ? "projects" : curCat)); back.type = "button";
+  back.addEventListener("click", () => { curProj = null; renderProjects(); });
+  view.append(back);
+  const i = nowIdx(p), steps = p.steps || [];
+  const head = el("div", "panel");
+  head.append(el("p", "label", p.category), el("h3", "", p.title));
+  if (p.summary) head.append(el("p", "muted", p.summary));
+  const tr = el("div", "track heal"); const f = el("div", "fill heal"); f.style.width = Math.round(100 * steps.filter((x) => x.done).length / Math.max(1, steps.length)) + "%"; tr.append(f); head.append(tr);
+  if (p.link) { const a = el("a", "linkbtn", p.link_label || "Open the step-by-step guide"); a.href = p.link; a.target = "_blank"; a.rel = "noopener"; head.append(a); }
+  view.append(head);
+  if (i >= 0) view.append(firstCard(steps[i].wait ? "waiting" : "step " + (i + 1) + " of " + steps.length, steps[i].text, steps[i].note));
+  else view.append(el("p", "panel", "Every step is done. Quest complete."));
+  const pnl = el("div", "panel"); pnl.append(el("p", "label", "The whole plan · tap a circle to tick a step"));
+  const done = steps.map((x, k) => [x, k]).filter(([x]) => x.done), todo = steps.map((x, k) => [x, k]).filter(([x]) => !x.done);
+  if (done.length) {
+    const det = el("details", "donefold"); det.append(el("summary", "", `✓ ${done.length} done`));
+    const ol = el("ol", "steps"); for (const [x, k] of done) ol.append(stepRow(p, x, k, false)); det.append(ol); pnl.append(det);
+  }
+  const ol = el("ol", "steps"); for (const [x, k] of todo) ol.append(stepRow(p, x, k, k === i)); pnl.append(ol);
+  view.append(pnl);
+}
+
+function stepRow(p, x, k, isNow) {
+  const li = el("li", "step" + (x.done ? " done" : isNow ? " now" : ""));
+  const dot = el("button", "dot", x.done ? "✓" : String(k + 1)); dot.type = "button";
+  dot.setAttribute("aria-label", (x.done ? "Untick step " : "Tick step ") + (k + 1));
+  dot.addEventListener("click", () => tickStep(p, k));
+  const body = el("div"); body.append(el("div", "s-text", x.text));
+  if (x.note) body.append(el("div", "s-note", x.note));
+  if (x.branch) { const b = el("div", "branch"); b.append(el("b", "", "If " + x.branch.if + ": "), document.createTextNode(x.branch.then)); body.append(b); }
+  li.append(dot, body); return li;
+}
+
+async function tickStep(p, k) {
+  if (!db) return;
+  const steps = p.steps.map((x, j) => (j === k ? { ...x, done: !x.done, done_at: !x.done ? new Date().toISOString() : null } : x));
+  try { await db.doc("projects/" + p.id).update({ steps, ticked_on_page: true }); }
+  catch (e) { alert("That tick didn't save. Try again in a moment."); }
+}
+
+/* ---------- Reminders ---------- */
+function remDate(when) {
+  const m = /(\d{4}-\d{2}-\d{2})/.exec(when || ""); return m ? m[1] : null;
+}
+function remRow(it, coming) {
+  const d = remDate(it.when);
+  let rel = "";
+  if (d && coming) { const n = daysBetween(nyDate(), d); rel = n < 0 ? "past" : n === 0 ? "today" : n === 1 ? "tomorrow" : "in " + n + " days"; }
+  const row = el("div", "rem" + (coming && d && daysBetween(nyDate(), d) <= 2 ? " soon" : ""));
+  const w = el("div", "when");
+  if (d && coming) { const t = (it.when.split(d)[1] || "").trim(); w.append(document.createTextNode(shortD(d) + (t ? " · " + t : ""))); }
+  else w.append(document.createTextNode(it.when || ""));
+  if (rel) w.append(el("span", "rel", rel));
+  const body = el("div"); body.append(el("div", "", it.what));
+  if (it.from) body.append(el("div", "from", "from " + it.from.replace(/,? set in .*/, "")));
+  row.append(w, body); return row;
+}
+function renderReminders() {
+  const box = $("rem-box"); const R = S.reminders; if (!R) return; box.replaceChildren();
+  const items = R.items || [];
+  const sec = (name) => items.filter((i) => (i.section || "").toLowerCase().startsWith(name));
+  const coming = sec("coming").filter((i) => !i.done).sort((a, b) => (remDate(a.when) || "").localeCompare(remDate(b.when) || ""));
+  const groups = [["Coming up", coming, true], ["Promised, no date yet", sec("promised").filter((i) => !i.done), false], ["Watches", sec("watches").filter((i) => !i.done), false]];
+  for (const [title, list, isComing] of groups) {
+    if (!list.length) continue;
+    const g = el("div", "rem-group"); g.append(el("h4", "", title));
+    for (const it of list) g.append(remRow(it, isComing));
+    box.append(g);
+  }
+  const regular = sec("regular"), done = items.filter((i) => i.done);
+  if (regular.length) { const d = el("details", "rem-more"); d.append(el("summary", "", "Regular check-ins (" + regular.length + ")")); const ul = el("ul", "plain"); for (const r of regular) ul.append(el("li", "", r.what.replace(/\s*\(trig_[^)]*\)/g, ""))); d.append(ul); box.append(d); }
+  if (done.length) { const d = el("details", "rem-more"); d.append(el("summary", "", "Done (" + done.length + ")")); for (const it of done) d.append(remRow(it, false)); box.append(d); }
+  box.append(el("p", "note", "Every reminder any of your projects has promised you. Ask any project to add, move or cancel one."));
+  $("rem-count").textContent = coming.length + " coming up";
+}
+
+function renderCheckin() {
+  const C = S.checkin; if (!C) return; const box = $("ci-box"); box.replaceChildren();
+  const A = S.ciAnswers || {}; let asked = 0, answered = 0;
+  const head = el("div", "panel quest"); head.append(el("h3", "", C.title || "This week's check-in"));
+  if (C.intro) head.append(el("p", "", C.intro));
+  head.append(el("p", "note", "Type your answers here; each one saves when you click or tap away. Your Chief of Staff reads them and files them in your records."));
+  box.append(head);
+  for (const a of C.areas || []) {
+    const c = el("div", "panel ci-area"); c.append(el("h3", "", a.name));
+    if (a.recap && a.recap.length) { const ul = el("ul", "ci-recap"); for (const r of a.recap) ul.append(el("li", "", r)); c.append(ul); }
+    for (const q of a.questions || []) {
+      asked++; const key = C.week + "__" + q.id; const prev = A[key];
+      if (prev && prev.text) answered++;
+      const w = el("div", "ci-q"); const id = "ci-" + q.id;
+      const lab = el("label", "", q.q); lab.htmlFor = id;
+      const ta = document.createElement("textarea"); ta.id = id; ta.value = prev ? prev.text || "" : "";
+      if (q.hint) ta.placeholder = q.hint;
+      const st = el("div", "ci-saved", prev && prev.at ? "Saved " + new Date(prev.at).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }) : "");
+      let last = ta.value;
+      ta.addEventListener("blur", async () => {
+        const v = ta.value.trim(); if (v === last.trim()) return;
+        st.className = "ci-saved"; st.textContent = "Saving…";
+        try { await db.doc("checkin_answers/" + key).set({ week: C.week, area: a.name, qid: q.id, q: q.q, text: v, at: new Date().toISOString() }); last = v; st.className = "ci-saved ok"; st.textContent = "Saved"; }
+        catch (e) { st.className = "ci-saved bad"; st.textContent = "Didn't save. Check your connection and try again."; }
+      });
+      w.append(lab, ta, st); c.append(w);
+    }
+    box.append(c);
+  }
+  $("ci-count").textContent = answered + " of " + asked + " answered" + (C.due ? " · by " + C.due : "");
+}
+
+function renderTeam() {
+  const T = S.team; if (!T) return; const box = $("team-box"); box.replaceChildren();
+  const ps = (T.projects || []).filter((p) => p.active || p.reported);
+  let n = 0;
+  for (const p of ps) {
+    const c = el("div", "panel team-card");
+    const h = el("h3"); h.append(el("span", "", p.name));
+    const chip = p.reported ? (p.stuck ? el("span", "chip warn", "stuck") : p.waiting ? el("span", "chip gold", "needs you") : el("span", "chip", p.quiet ? "quiet day" : "reported")) : el("span", "chip warn", "no report today");
+    h.append(chip); c.append(h);
+    if (p.reported) {
+      n++;
+      const rows = [["Did today", p.did, ""], ["You did", p.kyle_did, ""], ["Doing next", p.next, ""], ["Waiting on you", p.waiting, "wait"], ["Stuck", p.stuck, "stuck"]];
+      for (const [label, lines, cls] of rows) {
+        if (!lines || !lines.length) continue;
+        const r = el("div", "tline " + cls); r.append(el("span", "", label));
+        const ul = el("ul"); for (const l of lines) ul.append(el("li", "", l)); r.append(ul); c.append(r);
+      }
+      if (p.quiet && !p.did) c.append(el("p", "note", "Nothing moved today."));
+    } else c.append(el("p", "note", "No report for " + shortD(T.date) + " yet. If this stays, something on that project's side is broken."));
+    box.append(c);
+  }
+  const off = (T.projects || []).filter((p) => !p.active && !p.reported).map((p) => p.name);
+  if (off.length) box.append(el("p", "note", "Not reporting yet: " + off.join(", ") + "."));
+  $("team-count").textContent = n + " of " + ps.length + " reported · " + shortD(T.date);
+}
+function renderOrders() {
+  const C = S.commands; if (!C) return; const box = $("ord-box");
+  const open = C.open || [], done = C.done || [];
+  if (!open.length && !done.length) return;
+  box.replaceChildren();
+  const row = (o, isDone) => { const r = el("div", "order"); r.append(el("div", "", o.id + " · " + o.what));
+    const bits = ["to " + (o.to || "?"), "sent " + (o.sent || "").slice(0, 10)];
+    if (isDone) bits.push("done " + (o.done || "").slice(0, 10)); else bits.push(o.received ? "picked up " + o.received.slice(0, 10) : "not picked up yet");
+    r.append(el("div", "from", bits.join(" · "))); return r; };
+  const g = el("div", "rem-group"); g.append(el("h4", "", "Open")); if (open.length) for (const o of open) g.append(row(o, false)); else g.append(el("p", "note", "Nothing open.")); box.append(g);
+  if (done.length) { const d = el("details", "rem-more"); d.append(el("summary", "", "Recently done (" + done.length + " of " + (C.done_count || done.length) + ")")); for (const o of done) d.append(row(o, true)); box.append(d); }
+  $("ord-count").textContent = open.length + " open";
+}
+
+/* ---------- Standalone data layer: reads personal-data/hq/app-data.json with Kyle's GitHub key ---------- */
+const GH = { owner: "kylewrites33-cloud", repo: "personal-data", file: "hq/app-data.json", inbox: "hq/inbox/" };
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } } };
+let DATA = { docs: {}, collections: {}, updated: "" };
+const LISTEN = [];
+function ghKey() { return store.get("khq-key") || window.__khqKey || ""; }
+async function ghFetch(path, opts = {}) {
+  const r = await fetch("https://api.github.com/repos/" + GH.owner + "/" + GH.repo + "/contents/" + path, {
+    ...opts, cache: "no-store",
+    headers: { Authorization: "Bearer " + ghKey(), Accept: opts.raw ? "application/vnd.github.raw+json" : "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.body ? { "Content-Type": "application/json" } : {}) } });
+  if (!r.ok) { const e = new Error("GitHub said " + r.status); e.status = r.status; throw e; }
+  return opts.raw ? r.text() : r.json();
+}
+function pending() { try { return JSON.parse(store.get("khq-pending") || "[]"); } catch (e) { return []; } }
+function savePending(p) { store.set("khq-pending", JSON.stringify(p)); }
+function liveView() {
+  const v = JSON.parse(JSON.stringify(DATA));
+  const cut = DATA.updated || "";
+  const keep = pending().filter((w) => w.at > cut);
+  savePending(keep);
+  for (const w of keep) {
+    const [col, id] = [w.path.slice(0, w.path.lastIndexOf("/")), w.path.slice(w.path.lastIndexOf("/") + 1)];
+    if (v.docs[w.path] !== undefined || col === "hq") { v.docs[w.path] = w.op === "set" ? w.data : { ...(v.docs[w.path] || {}), ...w.data }; continue; }
+    const list = (v.collections[col] = v.collections[col] || []);
+    const i = list.findIndex((x) => x.id === id);
+    const next = w.op === "set" ? { id, ...w.data } : { ...(list[i] || { id }), ...w.data };
+    if (i >= 0) list[i] = next; else list.push(next);
+  }
+  return v;
+}
+function fire() { const v = liveView(); for (const f of LISTEN) { try { f(v); } catch (e) { console.error(e); } } }
+async function writeDoc(path, op, data) {
+  const at = new Date().toISOString();
+  const w = { op, path, data, at };
+  savePending([...pending(), w]); fire();
+  const name = GH.inbox + at.replace(/[:.]/g, "-") + "-" + Math.random().toString(36).slice(2, 7) + ".json";
+  const text = JSON.stringify(w, null, 1);
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+  try { await ghFetch(name, { method: "PUT", body: JSON.stringify({ message: "Kyle HQ app: " + op + " " + path, content: b64 }) }); }
+  catch (e) { savePending(pending().filter((x) => !(x.at === at && x.path === path))); fire(); throw e; }
+}
+const appDb = {
+  doc(path) { return {
+    onSnapshot(cb) { LISTEN.push((v) => { const d = v.docs[path] !== undefined ? v.docs[path] : (() => { const c = path.slice(0, path.lastIndexOf("/")), id = path.slice(path.lastIndexOf("/") + 1); const x = (v.collections[c] || []).find((y) => y.id === id); if (!x) return undefined; const { id: _, ...r } = x; return r; })(); cb({ exists: d !== undefined, data: () => d }); }); },
+    update(d) { return writeDoc(path, "update", d); },
+    set(d) { return writeDoc(path, "set", d); } }; },
+  collection(name) { const q = {
+    orderBy() { return q; }, limit() { return q; },
+    onSnapshot(cb) { LISTEN.push((v) => cb({ docs: (v.collections[name] || []).map((x) => ({ id: x.id, data: () => { const { id, ...r } = x; return r; } })) })); } }; return q; },
+};
+async function loadData(quiet) {
+  const box = $("key-box");
+  if (!ghKey()) { box.hidden = false; $("stamp").textContent = "Paste your key below to load your HQ."; return false; }
+  try {
+    const text = await ghFetch(GH.file, { raw: true });
+    DATA = JSON.parse(text); store.set("khq-cache", text); box.hidden = true; fire(); return true;
+  } catch (e) {
+    const cached = store.get("khq-cache");
+    if (cached && !DATA.updated) { try { DATA = JSON.parse(cached); fire(); } catch (x) {} }
+    if (e.status === 401 || e.status === 403 || e.status === 404) { box.hidden = false; $("key-msg").textContent = "That key didn't open your data (GitHub said " + e.status + "). Check it has read and write access to personal-data, then paste it again."; }
+    else if (!quiet) $("stamp").textContent = "Offline. Showing what this device saved last" + (DATA.updated ? " (" + DATA.updated.slice(0, 10) + ")" : "") + ".";
+    return false;
+  }
+}
+function setupKey() {
+  $("key-save").addEventListener("click", async () => {
+    const k = $("key-in").value.trim(); if (!k) return;
+    if (!store.set("khq-key", k)) $("key-msg").textContent = "This browser wouldn't keep the key. It works until you close the app.";
+    else $("key-msg").textContent = "Checking…";
+    window.__khqKey = k;
+    if (await loadData()) { $("key-in").value = ""; $("key-msg").textContent = ""; }
+  });
+  $("key-change").addEventListener("click", (e) => { e.preventDefault(); $("key-box").hidden = false; $("key-box").scrollIntoView({ behavior: "smooth" }); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadData(true); });
+}
+
+(async () => {
+  db = appDb; setupKey();
+  const docs = (s) => s.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const one = (path, key, fn) => db.doc(path).onSnapshot((s) => { S[key] = s.exists ? s.data() : null; fn(); });
+  one("hq/today", "today", renderToday);
+  one("hq/goal", "goal", () => { renderGoal(); renderBars(); renderWeek(); });
+  one("hq/health", "health", renderHealth);
+  one("hq/work", "work", renderWork);
+  one("hq/home", "home", renderHome);
+  one("hq/life", "life", renderLife);
+  one("hq/reminders", "reminders", renderReminders);
+  one("hq/team", "team", renderTeam);
+  one("hq/checkin", "checkin", renderCheckin);
+  db.collection("checkin_answers").onSnapshot((s) => { const m = {}; for (const d of s.docs) m[d.id] = d.data(); S.ciAnswers = m; if (!document.activeElement || document.activeElement.tagName !== "TEXTAREA") renderCheckin(); });
+  one("hq/commands", "commands", renderOrders);
+  db.collection("books").onSnapshot((s) => { S.books = docs(s); renderSeries(); renderBars(); });
+  db.collection("days").orderBy("date", "desc").limit(60).onSnapshot((s) => { S.days = docs(s); renderBars(); renderWeek(); });
+  db.collection("todos").onSnapshot((s) => { S.todos = docs(s); renderTodos(); renderProjects(); });
+  db.collection("projects").onSnapshot((s) => { S.projects = docs(s); renderProjects(); });
+  await loadData();
+  setInterval(() => loadData(true), 15 * 60 * 1000);
+})();
+</script>
+</body></html>

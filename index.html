@@ -91,6 +91,11 @@ html { scroll-behavior: smooth; }
 .group h4 { font: 700 13px var(--f-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--heal); margin: 10px 0 2px; }
 .todo { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .todo input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--done); cursor: pointer; }
+.t-why { font-size: 13.5px; color: var(--muted); }
+.top3 li { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+.skip { font: 700 12px var(--f-data); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+.qline { font-weight: 700; margin: 12px 0 4px; }
+details.shelf summary { cursor: pointer; font: 700 13px var(--f-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 10px 0 4px; }
 .todo.is-done .t-text { color: var(--muted); text-decoration: line-through; }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 500 12px var(--f-data); color: var(--muted); margin-top: 2px; }
 .meta .due { color: var(--warn); font-weight: 700; }
@@ -261,7 +266,7 @@ details.rem-more summary { cursor: pointer; font: 700 13px var(--f-data); color:
         <label><input type="checkbox" id="showdone"> Show done</label>
       </div>
       <div id="todo-list"><p class="empty">Loading your to-dos…</p></div>
-      <p class="note">This is kyle-hq's to-do list, shared by all your projects. Ticks here reach every project at the evening sync.</p>
+      <p class="note">Now is what you can do now. Questions are decisions waiting for you; Later is parked until its wake-up. Ticks reach every project at the evening sync.</p>
     </div>
   </section>
 
@@ -362,7 +367,7 @@ details.rem-more summary { cursor: pointer; font: 700 13px var(--f-data); color:
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => (n == null || n === "" ? "–" : Number(n).toLocaleString("en-US"));
 const STAGES = ["Market research", "Planning", "Outlining", "Writing", "Editing", "Publishing"];
-const S = { today: null, goal: null, health: null, work: null, home: null, life: null, books: [], days: [], todos: [], projects: [] };
+const S = { views: null, skips: {}, today: null, goal: null, health: null, work: null, home: null, life: null, books: [], days: [], todos: [], projects: [] };
 let db = null;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
@@ -383,37 +388,80 @@ function renderToday() {
   if (t.aim) chips.append(el("span", "chip gold", t.aim));
   $("light").textContent = t.light_task || "One Pomodoro, then stop. It still counts.";
   $("stamp").textContent = [t.date, t.updated ? "updated " + t.updated : ""].filter(Boolean).join(" · ");
-  const top = $("top3"); top.replaceChildren();
-  for (const x of t.top3 || []) top.append(el("li", "", x));
-  if (!(t.top3 || []).length) top.append(el("li", "empty", "Nothing picked yet."));
+  renderTop();
   const an = $("anchors"); an.replaceChildren();
   for (const a of t.anchors || []) { const li = el("li"); li.append(el("span", "t", a.time), el("span", "", a.text)); an.append(li); }
 }
 
-function renderTodos() {
-  const box = $("todo-list"); if (!S.todos.length) return;
-  const mine = $("mine").checked, showDone = $("showdone").checked;
-  const rows = [...S.todos].sort((a, b) => (a.order || 0) - (b.order || 0))
-    .filter((t) => (!mine || /kyle/i.test(t.owner || "")) && (showDone || !t.done));
-  const open = S.todos.filter((t) => !t.done);
-  $("todo-count").textContent = `${open.filter((t) => /kyle/i.test(t.owner || "")).length} yours open · ${open.length} total`;
-  box.replaceChildren();
-  if (!rows.length) { box.append(el("p", "empty", "Nothing here. Nice work.")); return; }
+function renderTop() {
+  const top = $("top3"); top.replaceChildren();
+  const picks = (S.views && Array.isArray(S.views.top5)) ? S.views.top5 : [];
+  const byId = new Map(S.todos.map((x) => [x.id, x]));
+  const shown = picks.filter((p) => !S.skips[p.id] && !(byId.get(p.id) || {}).done);
+  if (shown.length) {
+    for (const p of shown) {
+      const li = el("li"); const body = el("div"); body.append(el("div", "", p.text || (byId.get(p.id) || {}).text || p.id));
+      if (p.why) body.append(el("div", "t-why", p.why));
+      const b = el("button", "skip", "Not this"); b.type = "button"; b.setAttribute("aria-label", "Not this one for now");
+      b.addEventListener("click", () => skipPick(p));
+      li.append(body, b); top.append(li);
+    }
+    return;
+  }
+  const t = S.today || {};
+  for (const x of t.top3 || []) top.append(el("li", "", x));
+  if (!(t.top3 || []).length) top.append(el("li", "empty", "Nothing picked yet."));
+}
+async function skipPick(p) {
+  S.skips[p.id] = { skip: true }; renderTop();
+  if (!db) return;
+  try { await db.doc("top5_skips/" + p.id).set({ skip: true, at: new Date().toISOString(), text: p.text || "" }); }
+  catch (e) { delete S.skips[p.id]; renderTop(); }
+}
+function todoRow(t, extra) {
+  const row = el("div", "todo" + (t.done ? " is-done" : ""));
+  const id = "c-" + t.id;
+  const cb = el("input"); cb.type = "checkbox"; cb.id = id; cb.checked = !!t.done;
+  cb.addEventListener("change", () => tick(t.id, cb.checked, cb));
+  const body = el("div"); const lab = el("label", "t-text", t.text.replace(/^X-\d+ Decide:\s*/, "Decide: ")); lab.htmlFor = id; body.append(lab);
+  const meta = el("div", "meta");
+  if (t.owner && !/^kyle$/i.test(t.owner)) meta.append(el("span", "", "owner: " + t.owner));
+  if (t.due) meta.append(el("span", "due", "due " + t.due));
+  if (extra === "wake" && t.wake) meta.append(el("span", "", "wakes: " + t.wake));
+  if (t.from) meta.append(el("span", "", "from " + t.from));
+  if (meta.childElementCount) body.append(meta);
+  row.append(cb, body); return row;
+}
+function byArea(box, rows, extra) {
   let area = null, group = null;
   for (const t of rows) {
     if (t.area !== area) { area = t.area; group = el("div", "group"); group.append(el("h4", "", (area || "Other").replace(/\s*\(.*\)\s*$/, ""))); box.append(group); }
-    const row = el("div", "todo" + (t.done ? " is-done" : ""));
-    const id = "c-" + t.id;
-    const cb = el("input"); cb.type = "checkbox"; cb.id = id; cb.checked = !!t.done;
-    cb.addEventListener("change", () => tick(t.id, cb.checked, cb));
-    const body = el("div"); const lab = el("label", "t-text", t.text); lab.htmlFor = id; body.append(lab);
-    const meta = el("div", "meta");
-    if (t.owner && !/^kyle$/i.test(t.owner)) meta.append(el("span", "", "owner: " + t.owner));
-    if (t.due) meta.append(el("span", "due", "due " + t.due));
-    if (t.from) meta.append(el("span", "", "from " + t.from));
-    if (meta.childElementCount) body.append(meta);
-    row.append(cb, body); group.append(row);
+    group.append(todoRow(t, extra));
   }
+}
+function renderTodos() {
+  const box = $("todo-list"); if (!S.todos.length) return;
+  const mine = $("mine").checked, showDone = $("showdone").checked;
+  const all = [...S.todos].sort((a, b) => (a.order || 0) - (b.order || 0)).filter((t) => !mine || /kyle/i.test(t.owner || ""));
+  const open = S.todos.filter((t) => !t.done);
+  const shelf = (t) => t.shelf || "now";
+  $("todo-count").textContent = `${open.filter((t) => /kyle/i.test(t.owner || "") && shelf(t) === "now").length} on Now · ${open.length} open in all`;
+  box.replaceChildren();
+  const soon = new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+  const due = all.filter((t) => !t.done && t.due && t.due <= soon).sort((a, b) => a.due.localeCompare(b.due));
+  const dueIds = new Set(due.map((t) => t.id));
+  if (due.length) { const g = el("div", "group"); g.append(el("h4", "", "Due soon")); for (const t of due) g.append(todoRow(t)); box.append(g); }
+  const now = all.filter((t) => !t.done && shelf(t) === "now" && !dueIds.has(t.id));
+  byArea(box, now);
+  const qs = all.filter((t) => !t.done && shelf(t) === "questions" && !dueIds.has(t.id));
+  if (qs.length) {
+    const line = (S.views && S.views.questions && S.views.questions.line) || `${qs.length} decisions waiting`;
+    const d = el("details", "shelf"); d.append(el("summary", "", line)); byArea(d, qs); box.append(d);
+  }
+  const later = all.filter((t) => !t.done && shelf(t) === "later" && !dueIds.has(t.id));
+  if (later.length) { const d = el("details", "shelf"); d.append(el("summary", "", `Later · ${later.length} parked`)); byArea(d, later, "wake"); box.append(d); }
+  if (showDone) { const done = all.filter((t) => t.done); if (done.length) { const d = el("details", "shelf"); d.open = true; d.append(el("summary", "", `Done · ${done.length}`)); byArea(d, done); box.append(d); } }
+  if (!box.childElementCount) box.append(el("p", "empty", "Nothing here. Nice work."));
 }
 async function tick(id, done, input) {
   if (!db) { input.checked = !done; return; }
@@ -856,6 +904,8 @@ function setupKey() {
   const docs = (s) => s.docs.map((d) => ({ id: d.id, ...d.data() }));
   const one = (path, key, fn) => db.doc(path).onSnapshot((s) => { S[key] = s.exists ? s.data() : null; fn(); });
   one("hq/today", "today", renderToday);
+  one("hq/views", "views", () => { renderTop(); renderTodos(); });
+  db.collection("top5_skips").onSnapshot((s) => { const m = {}; for (const d of s.docs) { const v = d.data(); if (v && v.skip) m[d.id] = v; } S.skips = m; renderTop(); });
   one("hq/goal", "goal", () => { renderGoal(); renderBars(); renderWeek(); });
   one("hq/health", "health", renderHealth);
   one("hq/work", "work", renderWork);
@@ -868,7 +918,7 @@ function setupKey() {
   one("hq/commands", "commands", renderOrders);
   db.collection("books").onSnapshot((s) => { S.books = docs(s); renderSeries(); renderBars(); });
   db.collection("days").orderBy("date", "desc").limit(60).onSnapshot((s) => { S.days = docs(s); renderBars(); renderWeek(); });
-  db.collection("todos").onSnapshot((s) => { S.todos = docs(s); renderTodos(); renderProjects(); });
+  db.collection("todos").onSnapshot((s) => { S.todos = docs(s); renderTodos(); renderTop(); renderProjects(); });
   db.collection("projects").onSnapshot((s) => { S.projects = docs(s); renderProjects(); });
   await loadData();
   setInterval(() => loadData(true), 15 * 60 * 1000);

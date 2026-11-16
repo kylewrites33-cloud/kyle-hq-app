@@ -397,8 +397,15 @@ function renderTop() {
   const top = $("top3"); top.replaceChildren();
   const picks = (S.views && Array.isArray(S.views.top5)) ? S.views.top5 : [];
   const byId = new Map(S.todos.map((x) => [x.id, x]));
-  const shown = picks.filter((p) => !S.skips[p.id] && !(byId.get(p.id) || {}).done);
-  if (shown.length) {
+  const todays = ((S.views && Array.isArray(S.views.today)) ? S.views.today : []).filter((x) => !(byId.get(x.id) || {}).done);
+  const todayIds = new Set(todays.map((x) => x.id));
+  for (const x of todays) {
+    const li = el("li"); const body = el("div"); body.append(el("div", "", x.text));
+    body.append(el("div", "t-why", x.today ? "Today: you said this matters today" : "Today: due today"));
+    li.append(body); top.append(li);
+  }
+  const shown = picks.filter((p) => !S.skips[p.id] && !(byId.get(p.id) || {}).done && !todayIds.has(p.id));
+  if (shown.length || todays.length) {
     for (const p of shown) {
       const li = el("li"); const body = el("div"); body.append(el("div", "", p.text || (byId.get(p.id) || {}).text || p.id));
       if (p.why) body.append(el("div", "t-why", p.why));

@@ -180,6 +180,7 @@ blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid var(--heal); b
 .rem-group h4 { font: 700 13px var(--f-data); letter-spacing: .06em; text-transform: uppercase; color: var(--heal); margin: 6px 0 2px; }
 details.rem-more summary { cursor: pointer; font: 700 13px var(--f-data); color: var(--muted); padding: 8px 0; }
 @media (max-width: 420px) { .rem { grid-template-columns: 92px 1fr; } }
+#top3 li.is-done > div > div:first-child{text-decoration:line-through;opacity:.6}
 [hidden] { display: none !important; }
 .keybox { border: 2px solid var(--xp); }
 .keybox input { font: 16px var(--f-data); padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); width: 100%; box-sizing: border-box; }
@@ -395,28 +396,34 @@ function renderToday() {
 
 function renderTop() {
   const top = $("top3"); top.replaceChildren();
-  const picks = (S.views && Array.isArray(S.views.top5)) ? S.views.top5 : [];
+  const V = S.views || {};
   const byId = new Map(S.todos.map((x) => [x.id, x]));
-  const todays = ((S.views && Array.isArray(S.views.today)) ? S.views.today : []).filter((x) => !(byId.get(x.id) || {}).done);
-  const todayIds = new Set(todays.map((x) => x.id));
-  for (const x of todays) {
-    const li = el("li"); const body = el("div"); body.append(el("div", "", x.text));
-    body.append(el("div", "t-why", x.today ? "Today: you said this matters today" : "Today: due today"));
-    li.append(body); top.append(li);
-  }
-  const shown = picks.filter((p) => !S.skips[p.id] && !(byId.get(p.id) || {}).done && !todayIds.has(p.id));
-  if (shown.length || todays.length) {
-    for (const p of shown) {
-      const li = el("li"); const body = el("div"); body.append(el("div", "", p.text || (byId.get(p.id) || {}).text || p.id));
-      if (p.why) body.append(el("div", "t-why", p.why));
-      const b = el("button", "skip", "Not this"); b.type = "button"; b.setAttribute("aria-label", "Not this one for now");
-      b.addEventListener("click", () => skipPick(p));
-      li.append(body, b); top.append(li);
+  const ids = (Array.isArray(V.do_first) ? V.do_first : []).slice(0, 5);
+  if (ids.length) {
+    const todayIds = new Set((V.today || []).map((x) => x.id));
+    const info = new Map();
+    for (const k of ["today", "now", "later", "due_soon", "top5"]) for (const x of (V[k] || [])) if (x && x.id && !info.has(x.id)) info.set(x.id, x);
+    const whyOf = Object.fromEntries((V.top5 || []).map((p) => [p.id, p.why]));
+    for (const id of ids) {
+      const x = info.get(id) || {}, t = byId.get(id) || {};
+      if (!todayIds.has(id) && S.skips[id] && !t.done) continue;
+      const li = el("li", t.done ? "is-done" : ""); const body = el("div");
+      body.append(el("div", "", t.text || x.text || id));
+      const why = todayIds.has(id) ? ((x.today || t.today) ? "Today: you said this matters today" : "Today: due today") : whyOf[id];
+      if (t.done) body.append(el("div", "t-why", "Done today"));
+      else if (why) body.append(el("div", "t-why", why));
+      li.append(body);
+      if (!todayIds.has(id) && !t.done) {
+        const b = el("button", "skip", "Not this"); b.type = "button"; b.setAttribute("aria-label", "Not this one for now");
+        b.addEventListener("click", () => skipPick({ id, text: t.text || x.text || "" }));
+        li.append(b);
+      }
+      top.append(li);
     }
     return;
   }
   const t = S.today || {};
-  for (const x of t.top3 || []) top.append(el("li", "", x));
+  for (const x of (t.top3 || []).slice(0, 5)) top.append(el("li", "", x));
   if (!(t.top3 || []).length) top.append(el("li", "empty", "Nothing picked yet."));
 }
 async function skipPick(p) {
@@ -667,13 +674,13 @@ function renderProjects() {
     const pnl = el("div", "panel");
     pnl.append(el("p", "label", `${curCat === "All" ? "All" : curCat} to-dos · ${todos.length} open`));
     const list = el("div"); pnl.append(list);
-    for (const t of rest.slice(0, curCat === "All" ? 6 : 50)) list.append(todoRow(t));
+    for (const t of rest.slice(0, curCat === "All" ? 6 : 50)) list.append(projTodoRow(t));
     if (curCat === "All" && rest.length > 6) pnl.append(el("p", "note", "Pick a category above to see all of them, or scroll to To-dos."));
     view.append(pnl);
   }
 }
 
-function todoRow(t) {
+function projTodoRow(t) {
   const row = el("div", "todo"); const id = "pc-" + t.id;
   const cb = el("input"); cb.type = "checkbox"; cb.id = id;
   cb.addEventListener("change", () => tick(t.id, cb.checked, cb));
